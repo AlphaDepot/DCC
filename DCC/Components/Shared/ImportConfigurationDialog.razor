@@ -1,0 +1,133 @@
+﻿@using System.Text.Json
+@using DCC.Constants
+@using Microsoft.Extensions.Logging
+@inject IConfigurationService ConfigurationService
+@inject ISnackbar Snackbar
+@inject ILogger<ImportConfigurationDialog> Logger
+@inject ICleanerManager CleanerManager
+@inject IDialogService DialogService
+@if (!_processing)
+{
+    @* Displays a confirmation dialog to the user *@
+    <MudDialog>
+        <DialogContent>
+            <MudText>
+                Importing configuration will override existing settings.
+            </MudText>
+            <MudText Typo="Typo.body2" Class="mt-2">
+                This action cannot be undone.
+            </MudText>
+        </DialogContent>
+        <DialogActions>
+            <MudButton OnClick="Cancel">Cancel</MudButton>
+            <MudButton Color="Color.Error" OnClick="HandleSubmit">Import</MudButton>
+        </DialogActions>
+
+    </MudDialog>
+}
+
+@if (_processing)
+{
+    @* Displays a processing dialog while the configuration is being imported *@
+    <MudDialog Class="processing-dialog">
+        <TitleContent>
+            Processing...
+        </TitleContent>
+        <DialogContent>
+            <MudStack Row="true" Justify="Justify.FlexStart" AlignItems="AlignItems.Center" Spacing="2"
+                      Style="overflow: hidden;">
+                <MudProgressCircular Indeterminate="true" Size="Size.Small"/>
+                <MudText>@_processingText</MudText>
+            </MudStack>
+        </DialogContent>
+        <DialogActions>
+            <MudStack Spacing="5"/>
+        </DialogActions>
+    </MudDialog>
+}
+
+
+@code {
+    /// <summary>
+    ///     The dialog instance used to manage the dialog's state.
+    /// </summary>
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+    
+    /// <summary>
+    ///     Indicates whether the dialog is in a processing state.
+    /// </summary>
+    private bool _processing;
+
+    /// <summary>
+    ///     The text displayed during the processing state.
+    /// </summary>
+    private string _processingText = "Importing...";
+    
+    /// <summary>
+    ///     Cancels the dialog without performing any action.
+    /// </summary>
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+
+    private async Task HandleSubmit()
+    {
+        try
+        {
+            _processing = true;
+            var result = await FilePicker.PickAsync(new PickOptions
+            {
+                PickerTitle = "Select Config File",
+                FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+                {
+                    { DevicePlatform.WinUI, new[] { ".json" } },
+                    { DevicePlatform.MacCatalyst, new[] { "public.json" } }
+                }),
+            });
+
+            if (result == null)
+            {
+                Snackbar.Add("No file selected.", Severity.Info);
+                return;
+            }
+
+            await using var stream = await result.OpenReadAsync();
+            using var reader = new StreamReader(stream);
+            var json = await reader.ReadToEndAsync();
+
+            var config = JsonSerializer.Deserialize<Configuration>(json);
+            if (config == null)
+            {
+                Snackbar.Add("Invalid config file.", Severity.Error);
+                return;
+            }
+
+            await ConfigurationService.SaveConfigurationAsync(config);
+            Snackbar.Add("Config imported!", Severity.Success);
+
+
+        }
+        catch (Exception e)
+        {
+            Snackbar.Add($"Import failed: {e.Message}", Severity.Error);
+            Logger.LogError(e, "Failed to import config");
+        }
+        finally
+        {
+            _processing = false;
+            MudDialog.Close(DialogResult.Ok(true));
+            await OpenRestartDialog();
+        }
+        
+        
+    }
+    
+    private Task OpenRestartDialog()
+    {
+        var options = DialogConstants.DefaultDialogOptions;
+        return DialogService.ShowAsync<RestartAppDialog>("Restart Required", options);
+    }
+
+}

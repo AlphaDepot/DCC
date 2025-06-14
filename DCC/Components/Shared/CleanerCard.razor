@@ -1,0 +1,130 @@
+﻿@using DCC.Constants
+@inject IDirectoryService DirectoryService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+@* 
+This component displays a cleaner card 
+with options to view directories, start cleaning, 
+edit, and remove the cleaner.
+ *@
+
+<MudCard Class="cleaner-card">
+    <MudCardHeader>
+        <CardHeaderContent>
+            @* Display a loading spinner while data is being loaded *@
+            <MudText Typo="Typo.h6">@Cleaner.Name</MudText>
+            @* Display the cleaner's description with ellipsis for overflow *@
+            <MudText Typo="Typo.body2"
+                     Style="width: 100%;white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">@Cleaner.Description</MudText>
+        </CardHeaderContent>
+        <CardHeaderActions>
+            @* Dropdown menu to view directories associated with the cleaner *@
+            <MudTooltip Text="View Directories">
+                <MudMenu
+                    Label="Directories"
+                    AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight"
+                    Icon="@Icons.Material.Outlined.Folder" MaxHeight="200" FullWidth="true">
+                    @foreach (var directory in Cleaner.Directories)
+                    {
+                        <MudMenuItem>
+                            <MudText>@directory</MudText>
+                        </MudMenuItem>
+                    }
+                </MudMenu>
+            </MudTooltip>
+        </CardHeaderActions>
+    </MudCardHeader>
+    <MudCardActions>
+        @* Button to start cleaning directories *@
+        <MudTooltip Text="Clean Directories">
+            <MudIconButton Color="Color.Success" OnClick="StartCleaning"
+                           Icon="@Icons.Material.Filled.CleaningServices"/>
+        </MudTooltip>
+        <MudSpacer/>
+        @* Button to edit the cleaner *@
+        <MudTooltip Text="Edit Cleaner">
+            <MudIconButton Color="Color.Primary" Icon="@Icons.Material.Filled.Edit" OnClick="EditCleaner"/>
+        </MudTooltip>
+        @* Button to remove the cleaner *@
+        <MudTooltip Text="Remove Cleaner">
+            <MudIconButton OnClick="RemoveCleaner" Color="Color.Error" Icon="@Icons.Material.Filled.Delete"/>
+        </MudTooltip>
+
+    </MudCardActions>
+
+</MudCard>
+
+
+@code {
+
+    /// <summary>
+    ///     The cleaner object containing details such as name, description, and directories.
+    /// </summary>
+    [Parameter]
+    public required Cleaner Cleaner { get; set; }
+
+    /// <summary>
+    ///     Initiates the cleaning process for the directories associated with the cleaner.
+    ///     Displays appropriate messages for success, warnings, or errors.
+    /// </summary>
+    private async Task StartCleaning()
+    {
+        if (!Cleaner.Directories.Any())
+        {
+            Snackbar.Add("No directories to clean", Severity.Warning);
+            return;
+        }
+
+
+        var parameters = new DialogParameters { ["Content"] = "Cleaning Directories..." };
+        var options = DialogConstants.ProcessingDialogOptions;
+        var dialog = await DialogService.ShowAsync<ProcessingDialog>("", parameters, options);
+
+        StateHasChanged();
+
+        var directoriesToClean = Cleaner.Directories.Where(dir => !string.IsNullOrEmpty(dir)).ToList();
+
+        if (!directoriesToClean.Any())
+        {
+            Snackbar.Add("No valid directories to clean.", Severity.Warning);
+            dialog.Close();
+            return;
+        }
+
+
+        // Perform the cleaning operation
+        var result = await DirectoryService.RemoveDirectoryAsync(directoriesToClean, Cleaner.Location);
+        if (!result)
+        {
+            Snackbar.Add("Directories at the specified location are already removed.", Severity.Info);
+            dialog.Close();
+            return;
+        }
+
+
+        dialog.Close();
+        Snackbar.Add($"Cleaning completed for {Cleaner.Name}!", Severity.Success);
+        StateHasChanged();
+    }
+
+    /// <summary>
+    ///     Opens a dialog to edit the cleaner's details.
+    /// </summary>
+    private Task EditCleaner()
+    {
+        var parameters = new DialogParameters { ["Cleaner"] = Cleaner };
+        var options = DialogConstants.DefaultDialogOptions;
+        return DialogService.ShowAsync<AddEditCleanerDialog>("Edit Cleaner", parameters, options);
+    }
+
+    /// <summary>
+    ///     Opens a confirmation dialog to remove the cleaner.
+    /// </summary>
+    private Task RemoveCleaner()
+    {
+        var parameters = new DialogParameters { ["Cleaner"] = Cleaner };
+        return DialogService.ShowAsync<ConfirmCleanerDeletionDialog>("Remove Cleaner", parameters);
+    }
+
+}

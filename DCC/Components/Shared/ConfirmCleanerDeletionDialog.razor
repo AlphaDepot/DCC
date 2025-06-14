@@ -1,0 +1,95 @@
+﻿@inject ISnackbar Snackbar
+@inject ICleanerManager CleanerManager
+
+@*
+This component displays a confirmation dialog for removing a cleaner.
+It prompts the user to confirm the removal and handles the processing state.
+*@
+
+@if (!_processing)
+{
+    @* Displays a confirmation dialog to the user *@
+    <MudDialog>
+        <DialogContent>
+            <MudText>
+                Are you sure you want to remove cleaner <strong>@Cleaner.Name</strong>?
+            </MudText>
+            <MudText Typo="Typo.body2" Class="mt-2">
+                This action cannot be undone.
+            </MudText>
+        </DialogContent>
+        <DialogActions>
+            <MudButton OnClick="Cancel">Cancel</MudButton>
+            <MudButton Color="Color.Error" OnClick="HandleSubmit">Remove</MudButton>
+        </DialogActions>
+
+    </MudDialog>
+}
+
+@if (_processing)
+{
+    @* Displays a processing dialog while the cleaner is being removed *@
+    <MudDialog Class="processing-dialog">
+        <TitleContent>
+            Processing...
+        </TitleContent>
+        <DialogContent>
+            <MudStack Row="true" Justify="Justify.FlexStart" AlignItems="AlignItems.Center" Spacing="2"
+                      Style="overflow: hidden;">
+                <MudProgressCircular Indeterminate="true" Size="Size.Small"/>
+                <MudText>@_processingText</MudText>
+            </MudStack>
+        </DialogContent>
+        <DialogActions>
+            <MudStack Spacing="5"/>
+        </DialogActions>
+    </MudDialog>
+}
+
+
+@code {
+
+    /// <summary>
+    ///     The dialog instance used to manage the dialog's state.
+    /// </summary>
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    /// <summary>
+    ///     The cleaner object to be removed, passed as a parameter.
+    /// </summary>
+    [Parameter]
+    public required Cleaner Cleaner { get; set; }
+
+    /// <summary>
+    ///     Indicates whether the dialog is in a processing state.
+    /// </summary>
+    private bool _processing;
+
+    /// <summary>
+    ///     The text displayed during the processing state.
+    /// </summary>
+    private string _processingText = "Processing...";
+
+    /// <summary>
+    ///     Cancels the dialog without performing any action.
+    /// </summary>
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+
+    /// <summary>
+    ///     Handles the submission of the dialog by removing the cleaner.
+    ///     Displays a success message upon completion.
+    /// </summary>
+    private async Task HandleSubmit()
+    {
+        _processing = true;
+        _processingText = "Removing cleaner...";
+        await CleanerManager.RemoveCleanerAsync(Cleaner.Id);
+        Snackbar.Add($"Cleaner '{Cleaner.Name}' removed successfully!", Severity.Success);
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+
+}

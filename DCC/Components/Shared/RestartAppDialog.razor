@@ -1,0 +1,35 @@
+﻿
+<MudDialog>
+    <DialogContent>
+        <MudText>
+            The application must be closed and reopened for the new configuration to take effect.
+        </MudText>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Error" OnClick="Close">Ok</MudButton>
+    </DialogActions>
+
+</MudDialog>
+
+
+
+@code {
+    /// <summary>
+    ///     The dialog instance used to manage the dialog's state.
+    /// </summary>
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+    
+
+    
+    /// <summary>
+    ///     Cancels the dialog without performing any action.
+    /// </summary>
+    private void Close()
+    {
+        MudDialog.Cancel();
+    }
+
+ 
+
+}

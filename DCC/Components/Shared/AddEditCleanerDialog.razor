@@ -1,0 +1,184 @@
+﻿
+@inject ISnackbar Snackbar
+@inject ICleanerManager CleanerManager
+@*
+    This component allows users to add or edit a cleaner.
+*@
+
+@if (!_processing)
+{
+    <MudDialog>
+        <TitleContent>
+            Add new cleaner
+        </TitleContent>
+        <DialogContent>
+            <MudStack>
+                <MudTextField @bind-Value="_name" Label="Name"
+                              HelperText="Enter a name for the cleaner"
+                              Immediate="true"
+                              Margin="Margin.Dense"
+                              Variant="Variant.Text"/>
+            </MudStack>
+            <MudStack>
+                <MudTextField T="string" Label="Description" Variant="Variant.Text" @bind-Value="@_description"
+                              Lines="3"/>
+            </MudStack>
+
+            <FolderLocationSelector Location="@_location" LocationChanged="@(location => _location = location)"/>
+            @if (!string.IsNullOrEmpty(_location))
+            {
+                <DirectoryNamesManager
+                    EditableDirectories="@_directories"
+                    SavedDirectories="@_savedDirectories"
+                    EditableDirectoriesChanged="@(dirs => _directories = dirs)"
+                    SavedDirectoriesChanged="@(dirs => _savedDirectories = dirs)"/>
+            }
+
+        </DialogContent>
+        <DialogActions>
+            <MudButton OnClick="Cancel">Cancel</MudButton>
+            <MudButton Color="Color.Primary" OnClick="HandleSubmit">
+                @(_editMode ? "Update Cleaner" : "Add Cleaner")
+            </MudButton>
+        </DialogActions>
+    </MudDialog>
+}
+
+@if (_processing)
+{
+    <MudDialog Class="processing-dialog">
+        <TitleContent>
+            Processing...
+        </TitleContent>
+        <DialogContent>
+            <MudStack Row="true" Justify="Justify.FlexStart" AlignItems="AlignItems.Center" Spacing="2"
+                      Style="overflow: hidden;">
+                <MudProgressCircular Indeterminate="true" Size="Size.Small"/>
+                <MudText>@_processingText</MudText>
+            </MudStack>
+        </DialogContent>
+        <DialogActions>
+            <MudStack Spacing="5"/>
+        </DialogActions>
+    </MudDialog>
+}
+
+@code {
+
+    /// <summary>
+    ///     The dialog instance used to manage the modal dialog.
+    /// </summary>
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    /// <summary>
+    ///     The cleaner object being edited or added.
+    /// </summary>
+    [Parameter]
+    public Cleaner? Cleaner { get; set; }
+
+    private bool _processing;
+    private string _processingText = "Processing...";
+
+    /// <summary>
+    ///     Cancels the dialog and closes it without saving changes.
+    /// </summary>
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+
+
+    // State
+    private int _id;
+    private string _name = "";
+    private string _location = "";
+    private List<string> _directories = [];
+    private List<string> _savedDirectories = [];
+    private string? _description = "";
+    private bool _editMode;
+
+    /// <summary>
+    ///     Initializes the component and prepopulates fields if an existing cleaner is provided.
+    /// </summary>
+    protected override void OnInitialized()
+    {
+        // If an existing cleaner is provided, prepopulate fields
+        if (Cleaner == null) return;
+
+        _id = Cleaner.Id;
+        _name = Cleaner.Name;
+        _description = Cleaner.Description;
+        _location = Cleaner.Location;
+        _savedDirectories = new List<string>(Cleaner.Directories);
+        _editMode = true;
+    }
+
+
+    /// <summary>
+    ///     Handles the submission of the cleaner form, including validation and saving.
+    /// </summary>
+    private async Task HandleSubmit()
+    {
+        var validationErrors = new List<string>();
+
+        // Validate name
+        if (string.IsNullOrWhiteSpace(_name))
+        {
+            validationErrors.Add("Name is required");
+        }
+
+        // Validate location
+        if (string.IsNullOrWhiteSpace(_location))
+        {
+            validationErrors.Add("Location is required");
+        }
+
+        // Validate directories
+        var allDirectories = new List<string>(_savedDirectories);
+        allDirectories.AddRange(_directories.Where(d => !string.IsNullOrWhiteSpace(d)));
+        if (allDirectories.Count == 0)
+        {
+            validationErrors.Add("At least one directory name is required");
+        }
+
+        // Show errors if any validation failed
+        if (validationErrors.Any())
+        {
+            foreach (var error in validationErrors)
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+
+            return;
+        }
+
+        // All validations passed, proceed with submission
+        var cleaner = new Cleaner
+        {
+            Name = _name,
+            Description = _description,
+            Location = _location,
+            Directories = allDirectories
+        };
+        _processing = true;
+        if (_editMode && Cleaner != null)
+        {
+            _processingText = "Updating cleaner...";
+            cleaner.Id = _id;
+            await CleanerManager.UpdateCleanerAsync(cleaner);
+            Snackbar.Add($"Cleaner '{cleaner.Name}' updated successfully!", Severity.Success);
+        }
+        else
+        {
+            _processingText = "Adding cleaner...";
+            await CleanerManager.AddCleanerAsync(cleaner);
+            Snackbar.Add($"Cleaner '{cleaner.Name}' added successfully!", Severity.Success);
+        }
+
+
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+
+
+}

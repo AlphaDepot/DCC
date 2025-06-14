@@ -1,0 +1,81 @@
+﻿@using CommunityToolkit.Maui.Storage
+@*
+This component allows users to select a folder location for a cleaner.
+This is used specifically in the Add/Edit Cleaner dialog.
+*@
+
+<MudStack class="my-4" Spacing="0">
+    @if (!string.IsNullOrEmpty(Location))
+    {
+        <MudText Typo="Typo.h6">Selected Location:</MudText>
+        <MudStack Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Row="true" Wrap="Wrap.NoWrap">
+            <MudText Typo="Typo.body2" Color="Color.Primary"> @Location</MudText>
+            <MudIconButton Icon="@Icons.Material.Filled.Delete" Variant="Variant.Filled" Size="Size.Small"
+                           @onclick="RemoveLocation"/>
+        </MudStack>
+    }
+    else
+    {
+        <MudButton
+            Variant="Variant.Filled" @onclick="SelectLocation">Select Folder Location
+        </MudButton>
+    }
+</MudStack>
+
+@code {
+
+
+    /// <summary>
+    ///     The currently selected folder location.
+    /// </summary>
+    [Parameter]
+    public string Location { get; set; } = "";
+
+
+    /// <summary>
+    ///     Event callback triggered when the folder location changes.
+    /// </summary>
+    [Parameter]
+    public EventCallback<string> LocationChanged { get; set; }
+
+
+    /// <summary>
+    ///     Opens the folder picker dialog and updates the selected location.
+    /// </summary>
+    private async Task SelectLocation()
+    {
+        try
+        {
+            var result = await FolderPicker.Default.PickAsync();
+            if (result.IsSuccessful && result.Folder != null)
+            {
+                await UpdateLocation(result.Folder.Path);
+            }
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException("Failed to select folder location.", ex);
+        }
+    }
+
+
+    /// <summary>
+    ///     Removes the currently selected folder location.
+    /// </summary>
+    private async Task RemoveLocation()
+    {
+        await UpdateLocation("");
+    }
+
+
+    /// <summary>
+    ///     Updates the folder location and triggers the LocationChanged event.
+    /// </summary>
+    /// <param name="newLocation">The new folder location to set.</param>
+    private async Task UpdateLocation(string newLocation)
+    {
+        Location = newLocation;
+        await LocationChanged.InvokeAsync(Location);
+    }
+
+}

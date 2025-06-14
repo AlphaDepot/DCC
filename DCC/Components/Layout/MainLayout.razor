@@ -1,0 +1,53 @@
+﻿@inject IThemeManager ThemeManager
+@inherits LayoutComponentBase
+@implements IDisposable
+<MudLayout>
+    @if (ThemeManager?.IsInitialized == true)
+    {
+        <AppBar/>
+        <MudMainContent>
+            <MudContainer MaxWidth="MaxWidth.Medium" Class="pt-6">
+                @Body
+            </MudContainer>
+        </MudMainContent>
+    }
+    else
+    {
+        <PageLoadingSpinner/>
+    }
+</MudLayout>
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>
+
+@* Required *@
+<ThemeProvider/>
+<MudPopoverProvider/>
+
+@* Needed for dialogs *@
+<MudDialogProvider CloseButton="true" CloseOnEscapeKey="true"/>
+
+@* Needed for snackbars *@
+<MudSnackbarProvider/>
+
+
+@code
+{
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+        {
+            ThemeManager.OnChange += StateHasChanged;
+        }
+    }
+
+    public void Dispose()
+    {
+        ThemeManager.OnChange -= StateHasChanged;
+    }
+
+}

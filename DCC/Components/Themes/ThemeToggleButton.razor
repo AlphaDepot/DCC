@@ -1,0 +1,31 @@
+@inject IThemeManager ThemeManager
+@implements IDisposable
+@*
+	This component represents a button that toggles the application's theme between system, light and dark modes.
+*@
+<MudIconButton Size="Size" Icon="@(ThemeManager.DarkLightModeButtonIcon)" Color="Color.Inherit"
+               OnClick="@ThemeManager.DarkModeToggle"/>
+
+@code {
+
+
+	/// <summary>
+	///     This component represents a button that toggles the application's theme between dark and light modes.
+	/// </summary>
+	[Parameter]
+	public Size Size { get; set; } = Size.Medium;
+
+	protected override void OnAfterRender(bool firstRender)
+	{
+		if (firstRender)
+		{
+			ThemeManager.OnChange += StateHasChanged;
+		}
+	}
+
+	public void Dispose()
+	{
+		ThemeManager.OnChange -= StateHasChanged;
+	}
+
+}

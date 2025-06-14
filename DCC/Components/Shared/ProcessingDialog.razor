@@ -1,0 +1,30 @@
+﻿@*
+This Component displays a dialog with a processing indicator
+It can be called to show a loading state while performing an action from another component
+It cannot be loaded on top of another dialog
+*@
+
+<MudDialog Class="processing-dialog">
+    <DialogContent>
+        <MudStack Row="true" Justify="Justify.FlexStart" AlignItems="AlignItems.Center" Spacing="2"
+                  Style="overflow: hidden;">
+            <MudProgressCircular Indeterminate="true" Size="Size.Small"/>
+            <MudText>@Content</MudText>
+        </MudStack>
+    </DialogContent>
+</MudDialog>
+
+@code
+{
+    /// <summary>
+    ///     The dialog instance used to manage the dialog's state.
+    /// </summary>
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    /// <summary>
+    ///     The content to be displayed in the dialog.
+    /// </summary>
+    [Parameter]
+    public required string Content { get; set; }
+}

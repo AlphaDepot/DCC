@@ -1,0 +1,26 @@
+@inject IThemeManager ThemeManager
+@implements IDisposable
+@*
+    This component is responsible for providing the theme context to the application.
+    It binds the IsDarkMode property of the ThemeManager to the MudThemeProvider.
+*@
+<MudThemeProvider @bind-IsDarkMode="ThemeManager.IsDarkMode" Theme="ThemeManager.Theme"/>
+
+@code {
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            ThemeManager.OnChange += StateHasChanged;
+            // Initialize the theme mode when the component is first rendered
+            await ThemeManager.InitializeThemeMode();
+        }
+    }
+
+    public void Dispose()
+    {
+        ThemeManager.OnChange -= StateHasChanged;
+    }
+
+}

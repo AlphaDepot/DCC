@@ -1,0 +1,198 @@
+﻿@*
+    This component manages a list of directories.
+    It allows users to add, edit, and remove directories,
+    and provides a way to retrieve all directories.
+    
+    Usage:
+    Useful in the Add/Edit Cleaner dialog to manage directories associated with a cleaner.
+*@
+<MudStack class="my-4">
+    <MudStack Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Row="true" Wrap="Wrap.NoWrap">
+        <MudText Typo="Typo.subtitle1">Directories</MudText>
+        <MudButton
+            Size="Size.Small"
+            Variant="Variant.Filled"
+            Color="Color.Primary"
+            StartIcon="@Icons.Material.Filled.Add"
+            OnClick="AddDirectoryField">
+            Add Directory
+        </MudButton>
+    </MudStack>
+
+    @if (EditableDirectories.Count == 0 && SavedDirectories.Count == 0)
+    {
+        <MudText Typo="Typo.caption" Color="Color.Secondary">No directories added</MudText>
+    }
+    else
+    {
+        @* Saved directories (display mode) *@
+        @for (var i = 0; i < SavedDirectories.Count; i++)
+        {
+            var index = i;
+            <MudStack Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Row="true" Wrap="Wrap.NoWrap"
+                      Class="mb-2">
+                <MudText Class="flex-grow-1">@SavedDirectories[index]</MudText>
+                <MudIconButton
+                    Icon="@Icons.Material.Filled.Edit"
+                    Color="Color.Info"
+                    Size="Size.Small"
+                    OnClick="() => EditDirectory(index)"/>
+                <MudIconButton
+                    Icon="@Icons.Material.Filled.Delete"
+                    Color="Color.Error"
+                    Size="Size.Small"
+                    OnClick="() => RemoveSavedDirectory(index)"/>
+            </MudStack>
+        }
+
+        @* Directories being edited *@
+        @for (var i = 0; i < EditableDirectories.Count; i++)
+        {
+            var index = i;
+            <MudStack Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Row="true" Wrap="Wrap.NoWrap"
+                      Class="mb-2">
+                <MudTextField
+                    Margin="Margin.Dense"
+                    @bind-Value="EditableDirectories[index]"
+                    Placeholder="Directory name"
+                    Variant="Variant.Outlined"
+                    Immediate="true"
+                    Class="flex-grow-1"/>
+                <MudIconButton
+                    Icon="@Icons.Material.Filled.Check"
+                    Color="Color.Success"
+                    Size="Size.Small"
+                    OnClick="() => SaveDirectory(index)"/>
+                <MudIconButton
+                    Icon="@Icons.Material.Filled.Delete"
+                    Color="Color.Error"
+                    Size="Size.Small"
+                    OnClick="() => RemoveDirectory(index)"/>
+            </MudStack>
+        }
+    }
+</MudStack>
+
+@code {
+
+    /// <summary>
+    ///     List of directories currently being edited.
+    /// </summary>
+    [Parameter]
+    public List<string> EditableDirectories { get; set; } = [];
+
+    /// <summary>
+    ///     List of directories that have been saved.
+    /// </summary>
+    [Parameter]
+    public List<string> SavedDirectories { get; set; } = [];
+
+    /// <summary>
+    ///     Event callback triggered when the list of editable directories changes.
+    /// </summary>
+    [Parameter]
+    public EventCallback<List<string>> EditableDirectoriesChanged { get; set; }
+
+    /// <summary>
+    ///     Event callback triggered when the list of saved directories changes.
+    /// </summary>
+    [Parameter]
+    public EventCallback<List<string>> SavedDirectoriesChanged { get; set; }
+
+    /// <summary>
+    ///     Adds a new empty directory to the editable directories list.
+    /// </summary>
+    private void AddDirectoryField()
+    {
+        EditableDirectories.Add(string.Empty);
+        _ = NotifyEditableChanged();
+    }
+
+    /// <summary>
+    ///     Removes a directory from the editable directories list by index.
+    /// </summary>
+    /// <param name="index">The index of the directory to remove.</param>
+    private void RemoveDirectory(int index)
+    {
+        if (index < 0 || index >= EditableDirectories.Count) return;
+
+        EditableDirectories.RemoveAt(index);
+        _ = NotifyEditableChanged();
+    }
+
+    /// <summary>
+    ///     Saves a directory from the editable list to the saved list.
+    /// </summary>
+    /// <param name="index">The index of the directory to save.</param>
+    private void SaveDirectory(int index)
+    {
+        if (index < 0 || index >= EditableDirectories.Count || string.IsNullOrWhiteSpace(EditableDirectories[index])) return;
+
+        // Save the directory name
+        SavedDirectories.Add(EditableDirectories[index]);
+        _ = NotifySavedChanged();
+
+        // Remove from editing list
+        EditableDirectories.RemoveAt(index);
+        _ = NotifyEditableChanged();
+    }
+
+    /// <summary>
+    ///     Moves a directory from the saved list back to the editable list for editing.
+    /// </summary>
+    /// <param name="index">The index of the directory to edit.</param>
+    private void EditDirectory(int index)
+    {
+        if (index < 0 || index >= SavedDirectories.Count) return;
+
+        // Move from saved list back to editing list
+        EditableDirectories.Add(SavedDirectories[index]);
+        _ = NotifyEditableChanged();
+
+        SavedDirectories.RemoveAt(index);
+        _ = NotifySavedChanged();
+    }
+
+    /// <summary>
+    ///     Removes a directory from the saved directories list by index.
+    /// </summary>
+    /// <param name="index">The index of the directory to remove.</param>
+    private void RemoveSavedDirectory(int index)
+    {
+        if (index < 0 || index >= SavedDirectories.Count) return;
+
+        // Remove from saved directories
+        SavedDirectories.RemoveAt(index);
+        _ = NotifySavedChanged();
+    }
+
+    /// <summary>
+    ///     Notifies that the editable directories list has changed.
+    /// </summary>
+    private async Task NotifyEditableChanged()
+    {
+        await EditableDirectoriesChanged.InvokeAsync(EditableDirectories);
+        StateHasChanged();
+    }
+
+    /// <summary>
+    ///     Notifies that the saved directories list has changed.
+    /// </summary>
+    private async Task NotifySavedChanged()
+    {
+        await SavedDirectoriesChanged.InvokeAsync(SavedDirectories);
+        StateHasChanged();
+    }
+
+    /// <summary>
+    ///     Retrieves all directories, combining saved and non-empty editable directories.
+    /// </summary>
+    /// <returns>A list of all directories.</returns>
+    public List<string> GetAllDirectories()
+    {
+        var allDirectories = new List<string>(SavedDirectories);
+        allDirectories.AddRange(EditableDirectories.Where(d => !string.IsNullOrWhiteSpace(d)));
+        return allDirectories;
+    }
+
+}

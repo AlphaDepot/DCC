@@ -1,0 +1,180 @@
+@using System.Text
+@using System.Text.Json
+@using CommunityToolkit.Maui.Storage
+@using DCC.Constants
+@using Microsoft.Extensions.Logging
+@inject IThemeManager ThemeManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject ICleanerManager CleanerManager
+@inject IDirectoryService DirectoryService
+@inject ILogger<AppBar> Logger
+@inject IConfigurationService ConfigurationService
+@*
+	This component represents the application bar at the top of the page.
+	It includes a button to open a dialog for adding a new cleaner, refreshing the cleaner list and a theme toggle button.
+*@
+<MudAppBar Dense="true" Elevation="0" Style="@($"border-bottom: solid 1px {BorderColor};")">
+	<div>
+		@* Button to add a new cleaner *@
+		<MudTooltip Text="Add New Cleaner">
+			<MudIconButton @onclick="OpenDialogAsync" Icon="@Icons.Material.Filled.Add" Title=""
+			               Size="Size.Small"/>
+		</MudTooltip>
+		@* Button to refresh the cleaner list *@
+		<MudTooltip Text="Refresh">
+			<MudIconButton @onclick="RefreshDataAsync" Icon="@Icons.Material.Filled.Refresh" Title=""
+			               Size="Size.Small" Class="ml-2"/>
+		</MudTooltip>
+		@* Button to clean all cleaners *@
+		<MudTooltip Text="Clean All">
+			<MudIconButton OnClick="CleanAllAsync" Icon="@Icons.Material.Filled.CleaningServices" Title=""
+			               Size="Size.Small" Class="ml-2"/>
+		</MudTooltip>
+
+	</div>
+	<MudSpacer/>
+	<div class="ml-2">
+		@* Button to toggle the theme between light and dark mode *@
+		<MudTooltip Text="Toggle Theme">
+			<ThemeToggleButton Size="Size.Small"/>
+		</MudTooltip>
+		@* Button to export the configuration of cleaners *@
+		<MudTooltip Text="Export Config">
+			<MudIconButton Icon="@Icons.Material.Filled.Download" Size="Size.Small" OnClick="ExportConfigAsync"
+			               Class="ml-2"/>
+		</MudTooltip>
+		@* Button to open a dialog for importing configuration *@
+		<MudTooltip Text="Import Config">
+			<MudIconButton Icon="@Icons.Material.Filled.Upload" Size="Size.Small" OnClick="OpenImportDialog" Class="ml-2"/>
+		</MudTooltip>
+	</div>
+</MudAppBar>
+
+@code {
+
+	/// <summary>
+	///     Event callback that is triggered when the drawer is toggled.
+	/// </summary>
+	[Parameter]
+	public EventCallback<bool> OnDrawerToggle { get; set; }
+
+	private string BorderColor => ThemeManager.IsDarkMode
+		? DarkTheme.DarkPalette.LinesDefault.ToString()
+		: LightTheme.LightPalette.LinesDefault.ToString();
+
+	private Task OpenDialogAsync()
+	{
+		var options = DialogConstants.DefaultDialogOptions;
+		return DialogService.ShowAsync<AddEditCleanerDialog>("Add Cleaner", options);
+	}
+
+	/// <summary>
+	///     Refreshes the list of cleaners by calling the CleanerManager's LoadCleanersAsync method.
+	/// </summary>
+	private async Task RefreshDataAsync()
+	{
+		try
+		{
+			// Show a processing dialog while refreshing the cleaner list
+			var dialog = await ShowProcessingDialogAsync("Refreshing...");
+			// Call the CleanerManager to refresh the list of cleaners
+			await CleanerManager.LoadCleanersAsync(true);
+			dialog.Close();
+			Snackbar.Add("Refreshed successfully!", Severity.Success);
+		}
+		catch (Exception e)
+		{
+			Snackbar.Add($"Error: {e.Message}", Severity.Error);
+			Logger.LogError(e, "Failed to refresh cleaners");
+		}
+	}
+	/// <summary>
+	///     Cleans all directories associated with all cleaners.
+	/// </summary>
+	private async Task CleanAllAsync()
+	{
+		var dialog = await ShowProcessingDialogAsync("Cleaning...");
+		try
+		{
+			// Show a processing dialog while refreshing the cleaner list
+
+			await Task.Delay(5000).WaitAsync(CancellationToken.None);
+			var cleaners = CleanerManager.Cleaners;
+			if (!cleaners.Any())
+			{
+				Snackbar.Add("No cleaners available to clean.", Severity.Warning);
+				dialog.Close();
+				return;
+			}
+
+			// Perform the cleaning operation for all cleaners
+			foreach (var cleaner in cleaners)
+			{
+				await DirectoryService.RemoveDirectoryAsync(cleaner.Directories, cleaner.Location);
+			}
+
+
+			Snackbar.Add("All cleaned!", Severity.Success);
+		}
+		catch (Exception e)
+		{
+			Snackbar.Add($"Error: {e.Message}", Severity.Error);
+			Logger.LogError(e, "Failed to clean all");
+		}
+		finally
+		{
+			dialog.Close();
+		}
+	}
+	/// <summary>
+	///     Shows a processing dialog with the specified content.
+	/// </summary>
+	/// <param name="content">The message to display in the processing dialog.</param>
+	/// <returns>A reference to the created dialog.</returns>
+	private Task<IDialogReference> ShowProcessingDialogAsync(string content)
+	{
+		var parameters = new DialogParameters { ["Content"] = content };
+		return DialogService.ShowAsync<ProcessingDialog>(string.Empty, parameters, DialogConstants.ProcessingDialogOptions);
+	}
+
+	/// <summary>
+	///  Exports the current configuration of the application to a JSON file.
+	/// </summary>
+	private async Task ExportConfigAsync()
+	{
+		try
+		{
+			var config = await ConfigurationService.GetConfigurationAsync();
+			var json = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
+			var bytes = Encoding.UTF8.GetBytes(json);
+			const string fileName = AppConstants.ConfigurationFileName;
+
+			var result = await FileSaver.SaveAsync(fileName, new MemoryStream(bytes), CancellationToken.None);
+			if (result.IsSuccessful)
+			{
+				Snackbar.Add("Config exported!", Severity.Success);
+			}
+			else
+			{
+				Snackbar.Add("Export failed: " + result.Exception?.Message, Severity.Error);
+			}
+		}
+		catch (Exception e)
+		{
+			Snackbar.Add($"Export failed: {e.Message}", Severity.Error);
+			Logger.LogError(e, "Failed to export config");
+		}
+	}
+
+	/// <summary>
+	/// Opens a dialog to import a configuration file.
+	/// </summary>
+	/// <returns> A task representing the asynchronous operation.</returns>
+	private Task OpenImportDialog()
+	{
+		var options = DialogConstants.DefaultDialogOptions;
+		return DialogService.ShowAsync<ImportConfigurationDialog>("Import Configuration", options);
+	}
+
+}

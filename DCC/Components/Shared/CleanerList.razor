@@ -1,0 +1,92 @@
+﻿@inject ICleanerManager CleanerManager
+@implements IDisposable
+
+@* 
+This component displays a list of cleaners 
+with their details and actions.
+The list is loaded from the CleanerManager.
+ *@
+
+<MudStack Spacing="2" Justify="Justify.SpaceBetween"
+          AlignItems="AlignItems.Center" Row="true" Wrap="Wrap.Wrap"
+
+          Breakpoint="Breakpoint.Xs">
+
+    @if (_loading)
+    {
+        @* Display a loading spinner while data is being loaded *@
+        <MudProgressCircular Indeterminate="true" Size="Size.Small"/>
+    }
+
+    @if (!_loading)
+    {
+        @* Display a list of cleaner cards once data is loaded *@
+        @foreach (var cleaner in CleanerManager.Cleaners)
+        {
+            <MudStack Spacing="2" Class="cleaner-card-responsive">
+                <CleanerCard Cleaner="@cleaner"/>
+            </MudStack>
+        }
+    }
+
+    @if (_hasError)
+    {
+        @* Display an error message if data loading fails *@
+        <MudPaper>
+            @_errorMessage
+        </MudPaper>
+    }
+</MudStack>
+
+
+
+
+
+@code {
+
+    // Indicates whether the component is in a loading state
+    private bool _loading = true;
+
+    // Indicates whether an error occurred during data loading
+    private bool _hasError;
+
+    // Stores the error message to display in case of failure
+    private string _errorMessage = string.Empty;
+
+    /// <summary>
+    ///     Lifecycle method triggered after the component has rendered.
+    ///     Initializes the CleanerManager and handles data loading.
+    /// </summary>
+    /// <param name="firstRender">Indicates if this is the first render of the component.</param>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            CleanerManager.OnChange += StateHasChanged;
+            try
+            {
+                await CleanerManager.LoadCleanersAsync();
+            }
+            catch (Exception ex)
+            {
+                _hasError = true;
+                _errorMessage = "Failed to load cleaners. Please try again later.";
+                Console.WriteLine(ex);
+            }
+            finally
+            {
+                _loading = false;
+                StateHasChanged();
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Disposes of the component by unsubscribing from events.
+    /// </summary>
+    public void Dispose()
+    {
+        CleanerManager.OnChange -= StateHasChanged;
+    }
+
+}
